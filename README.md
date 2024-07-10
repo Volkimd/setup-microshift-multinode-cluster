@@ -1,6 +1,9 @@
 # setup-microshift-multinode-cluster
 
 This Ansible playbook automates the setup of a MicroShift multi-node cluster. It's designed to quickly and easily provision a functional cluster for testing or development purposes.
+it is base on the multinode scripts from microshift source https://github.com/openshift/microshift/tree/main/scripts/multinode
+
+
 
 ## Prerequisites
 
@@ -13,5 +16,8 @@ This Ansible playbook automates the setup of a MicroShift multi-node cluster. It
 
 Modify the `inventory` file to match your environment.
 
+## Important Note
+
+This playbook is primarily intended for development and testing environments. It is not recommended for production use without further hardening and security considerations.
 
 
