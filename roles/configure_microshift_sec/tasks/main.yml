@@ -1,0 +1,148 @@
+---
+
+
+
+
+- name: Stop and unload the kubelet service if active
+  systemd:
+    name: microshift
+    state: stopped
+    enabled: no
+  become: yes
+
+- name: Clean the current MicroShift configuration and stop the service
+  command: echo 1 | sudo microshift-cleanup-data --all --keep-images
+  become: yes
+
+- name: Cleanup kubelet_home from hostdata certs etc
+  file:
+    path: "{{ kubelet_home }}"
+    state: absent
+  become: yes
+
+- name: Sleep for 5 seconds
+  pause:
+    seconds: 5
+
+- name: Start microshift-ovs-init service
+  systemd:
+    name: microshift-ovs-init.service
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: yes
+
+
+- name: Check if br-ex has the dummy IP assigned
+  command: ip addr show br-ex
+  register: br_ex_ip
+  failed_when: br_ex_ip.rc != 0 and '10.44.0.0/32' not in br_ex_ip.stdout
+
+- name: Add dummy IP to br-ex if not present
+  command: sudo ip addr add 10.44.0.0/32 dev br-ex
+  when: '"10.44.0.0/32" not in br_ex_ip.stdout'
+  become: yes
+
+- name: Check if kubelet service is active
+  command: systemctl is-active kubelet
+  register: kubelet_service_active
+  ignore_errors: true
+  become: yes
+
+- name: Stop and unload the kubelet service if active
+  systemd:
+    name: kubelet
+    state: stopped
+  when: kubelet_service_active.stdout == "active"
+  become: yes
+
+- name: Reset failed state of kubelet service
+  command: systemctl reset-failed kubelet
+  ignore_errors: true
+  become: yes
+
+- name: Terminate kubelet process if running
+  command: pkill -9 --exact kubelet
+  ignore_errors: true
+  become: yes
+
+- name: Ensure kubelet process is terminated
+  shell: |
+    while pgrep kubelet > /dev/null; do
+      pkill -9 --exact kubelet
+      sleep 1
+    done
+  when: kubelet_service_active.stdout == "active"
+  become: yes
+
+- name: Unmount /var/lib/kubelet directories
+  shell: |
+    for dir in $(mount | awk '{print $3}' | grep ^/var/lib/kubelet/); do
+        umount "${dir}"
+    done
+  become: yes
+
+- name: Remove /var/lib/kubelet directory
+  file:
+    path: /var/lib/kubelet
+    state: absent
+  become: yes
+
+- name: Find kubelet service unit files
+  find:
+    paths: /run/systemd
+    patterns: kubelet.service
+    recurse: yes
+    age: 0
+  register: find_result
+  become: yes
+
+- name: Delete kubelet service unit files
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  with_items: "{{ find_result.files }}"
+  become: yes
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+  become: yes
+
+
+
+
+
+# ## Sec
+# function configure_microshift() {
+#     # Clean the current MicroShift configuration and stop the service
+#     echo 1 | sudo microshift-cleanup-data --all --keep-images
+
+#     # Run OVN initialization script
+#     sleep 5
+#     sudo systemctl start --wait microshift-ovs-init.service
+
+#     # OVN-K expects br-ex to have IP address assigned, add dummy IP to br-ex.
+    # if ! ip addr show br-ex 2>/dev/null | grep -q '10.44.0.0/32'; then
+    #     sudo ip addr add 10.44.0.0/32 dev br-ex
+    # fi
+
+#     # Stop and unload the kubelet service
+#     if [ "$(systemctl is-active kubelet.service)" = "active" ] ; then
+#         sudo systemctl stop --now kubelet
+#     fi
+#     sudo systemctl reset-failed kubelet || true
+#     # Make sure the kubelet process is terminated
+#     sudo pkill -9 --exact kubelet || true
+#     until ! pidof kubelet &>/dev/null ; do
+#         sleep 1
+#     done
+#     # Clean up the old kubelet data
+#     for dir in $(mount | awk '{print $3}' | grep ^/var/lib/kubelet/) ; do
+#         sudo umount "${dir}"
+#     done
+#     sudo rm -rf /var/lib/kubelet
+#     # Remove the kubelet service unit
+#     sudo find /run/systemd -name kubelet.service -exec rm -f {} \;
+#     sudo systemctl daemon-reload
+# }

@@ -1,0 +1,10 @@
+---
+- name: Wait for secondary node to be ready
+  environment:
+  - KUBECONFIG: /var/lib/microshift/resources/kubeadmin/kubeconfig
+  command: "{{ oc_cmd }} wait --for=condition=Ready nodes {{ inventory_hostname }} --timeout=0s"
+  register: secondary_node_ready
+  retries: 300
+  delay: 1
+  until: secondary_node_ready.rc == 0
+  become: yes

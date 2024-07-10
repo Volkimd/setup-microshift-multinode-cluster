@@ -1,0 +1,50 @@
+---
+- name: Install required packages
+  package:
+    name:
+      - cloud-utils-growpart
+      - e2fsprogs
+    state: present
+
+- name: Get the root device
+  command: findmnt -n -o SOURCE /
+  register: root_partition
+
+- name: Strip mount options from root partition
+  set_fact:
+    root_partition_device: "{{ root_partition.stdout.split('[')[0].strip() }}"
+
+- name: Get the root disk
+  command: lsblk -no pkname {{ root_partition_device }}
+  register: root_disk
+
+- name: Extract partition number
+  set_fact:
+    partition_number: "{{ root_partition_device | regex_search('[0-9]+$') }}"
+
+- name: Check available space before growing partition
+  command: lsblk
+  register: lsblk_output
+  ignore_errors: yes
+
+- debug:
+    var: lsblk_output.stdout_lines
+
+- name: Grow the root partition
+  command: growpart /dev/{{ root_disk.stdout.strip() }} {{ partition_number }}
+  become: yes
+  ignore_errors: yes
+  register: growpart_output
+
+- debug:
+    var: growpart_output
+
+- name: Resize the filesystem
+  command: resize2fs {{ root_partition_device }}
+  become: yes
+  ignore_errors: yes
+  register: resizefs_output
+
+- debug:
+    var: resizefs_output
+

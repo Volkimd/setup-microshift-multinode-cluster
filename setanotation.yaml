@@ -1,0 +1,66 @@
+---
+- name: Konfiguriere OVN-Kubernetes Annotationen für Nodes
+  hosts: primary  # Nur auf dem Primary-Node ausführen
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  become: yes
+  gather_facts: false  # Wir sammeln nur die benötigten Fakten
+
+  tasks:
+    - name: Sammle Fakten über die Secondary Nodes
+      delegate_to: "{{ item }}"
+      ansible.builtin.setup:
+        filter: ansible_default_ipv4.macaddress  # Nur MAC-Adresse sammeln
+      with_items: "{{ groups['secondary'] }}"
+
+    - name: Setze node-chassis-id Annotation
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Node
+        name: "{{ item }}"
+        state: present
+        merge_type: merge
+        resource_definition:
+          metadata:
+            annotations:
+              k8s.ovn.org/node-chassis-id: "{{ item }}"
+      with_items: "{{ groups['secondary'] }}"
+      loop_control:
+        loop_var: item
+      environment:
+        KUBECONFIG: /var/lib/microshift/resources/kubeadmin/kubeconfig
+
+    - name: Setze macAddress Annotation
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Node
+        name: "{{ item }}"
+        state: present
+        merge_type: merge
+        resource_definition:
+          metadata:
+            annotations:
+              macAddress: "{{ hostvars[item]['ansible_default_ipv4']['macaddress'] }}"
+      with_items: "{{ groups['secondary'] }}"
+      loop_control:
+        loop_var: item
+      environment:
+        KUBECONFIG: /var/lib/microshift/resources/kubeadmin/kubeconfig
+
+    - name: Setze l3-gateway-config Annotation
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Node
+        name: "{{ item }}"
+        state: present
+        merge_type: merge
+        resource_definition:
+          metadata:
+            annotations:
+              k8s.ovn.org/l3-gateway-config: "{{ {'default': {'mode': 'local', 'mac-address': hostvars[item]['ansible_default_ipv4']['macaddress']}} | to_json }}"
+      with_items: "{{ groups['secondary'] }}"
+      loop_control:
+        loop_var: item
+      environment:
+        KUBECONFIG: /var/lib/microshift/resources/kubeadmin/kubeconfig
+

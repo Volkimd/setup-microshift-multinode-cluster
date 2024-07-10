@@ -1,0 +1,31 @@
+---
+- name: Create temporary directory for kubelet download
+  tempfile:
+    state: directory
+  register: temp_dir
+
+- name: Set temporary file paths
+  set_fact:
+    kubelet_temp_path: "{{ temp_dir.path }}/kubelet"
+    kubelet_sha256_path: "{{ temp_dir.path }}/kubelet.sha256"
+
+- name: Set kubelet architecture
+  set_fact:
+    kube_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}"
+
+- name: Set kubelet hash
+  set_fact:
+    kube_hash: "{{ kubelet_hash_map[ansible_architecture] }}"
+
+- name: Download kubelet
+  get_url:
+    url: "https://dl.k8s.io/release/v1.29.5/bin/linux/{{ kube_arch }}/kubelet"
+    dest: "{{ kubelet_temp_path }}"
+    mode: '0755'
+
+- name: Move kubelet to kubelet home
+  copy:
+    src: "{{ kubelet_temp_path }}"
+    dest: "{{ kubelet_home }}/kubelet"
+    remote_src: yes
+    mode: '0755'

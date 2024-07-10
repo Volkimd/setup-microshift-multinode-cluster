@@ -1,0 +1,28 @@
+[Unit]
+Description=Kubernetes Kubelet
+Documentation=https://kubernetes.io/docs/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart={{ kubelet_home }}/kubelet \
+        --container-runtime-endpoint=/var/run/crio/crio.sock \
+        --resolv-conf=/etc/resolv.conf \
+        --rotate-certificates=true \
+        --kubeconfig={{ kubelet_home }}/kubeconfig \
+        --lock-file=/var/run/lock/kubelet.lock \
+        --exit-on-lock-contention \
+        --fail-swap-on=false \
+        --max-pods=250 \
+        --cgroup-driver=systemd \
+        --tls-cert-file={{ kubelet_home }}/kubelet-{{ inventory_hostname }}.crt \
+        --tls-private-key-file={{ kubelet_home }}/kubelet-{{ inventory_hostname }}-key.pem \
+        --bootstrap-kubeconfig={{ kubelet_home }}/kubeconfig-{{ groups['primary'][0] }} \
+        --cluster-dns=10.43.0.10 \
+        --cluster-domain=cluster.local
+Restart=always
+StartLimitInterval=0
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,24 @@
+---
+- name: Ensure crio configuration directory exists
+  file:
+    path: /etc/crio/crio.conf.d
+    state: directory
+    mode: '0755'
+
+- name: Copy plugin dir configuration
+  copy:
+    src: 00-plugin-dir.conf
+    dest: /etc/crio/crio.conf.d/00-plugin-dir.conf
+    mode: '0644'
+
+- name: Copy crun runtime configuration
+  copy:
+    src: 01-crun.conf
+    dest: /etc/crio/crio.conf.d/01-crun.conf
+    mode: '0644'
+
+- name: Restart crio service
+  systemd:
+    name: crio
+    state: restarted
+

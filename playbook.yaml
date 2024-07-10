@@ -1,0 +1,25 @@
+- hosts: all
+  become: true
+  roles:
+    - resize_root
+    - install_crio
+    - install_microshift
+    - configure_system_prim_sec
+    
+
+- hosts: primary
+  become: true
+  roles:
+    - configure_microshift_pri
+    - wait_for_microshift_nodes
+    - generate_service_certs_prim
+
+- hosts: secondary
+  become: true
+  roles:
+    - configure_microshift_sec  
+    - configure_kubelet_sec
+    - wait_for_microshift_nodes
+    - label_worker
+  
+

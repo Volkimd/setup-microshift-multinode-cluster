@@ -1,0 +1,24 @@
+---
+- name: Setze node-chassis-id Annotation
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    name: "{{ inventory_hostname }}"
+    annotations:
+      k8s.ovn.org/node-chassis-id: "{{ inventory_hostname }}"
+
+- name: Setze macAddress Annotation
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    name: "{{ inventory_hostname }}"
+    annotations:
+      macAddress: "{{ ansible_default_ipv4.macaddress }}"
+
+- name: Setze l3-gateway-config Annotation
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    name: "{{ inventory_hostname }}"
+    annotations:
+      k8s.ovn.org/l3-gateway-config: '{"default":{"mode":"local","mac-address":"{{ ansible_default_ipv4.macaddress }}"}}'

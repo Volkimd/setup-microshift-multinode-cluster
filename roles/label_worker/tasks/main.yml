@@ -1,0 +1,6 @@
+---
+- name: Label the secondary node as a worker
+  environment:
+  - KUBECONFIG: /var/lib/microshift/resources/kubeadmin/kubeconfig
+  command: "{{ oc_cmd }} label nodes {{ inventory_hostname }} node-role.kubernetes.io/worker="
+  become: yes

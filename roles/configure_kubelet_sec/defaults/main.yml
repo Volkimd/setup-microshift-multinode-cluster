@@ -1,0 +1,5 @@
+---
+kubelet_home: "/root/kubelet"
+kubelet_hash_map:
+  x86_64: "cb2845fff0ce41c400489393da73925d28fbee54cfeb7834cd4d11e622cbd3a7"
+  aarch64: "dbb09d297d924575654db38ed2fc627e35913c2d4000c34613ac6de4995457d0"

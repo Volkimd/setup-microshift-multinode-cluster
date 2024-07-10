@@ -1,0 +1,48 @@
+---
+
+- name: Copy OpenShift client RPM to the target machine
+  copy:
+    src: openshift-client.rpm
+    dest: /tmp/openshift-client.rpm
+    force: yes
+
+- name: Install OpenShift client without GPG check
+  command: dnf install -y /tmp/openshift-client.rpm --nogpgcheck
+  become: true
+
+- name: copy repo file
+  copy:
+    src: microshift.repo
+    dest: /etc/yum.repos.d/microshift.repo
+    mode: '0644'
+
+- name: Copy Pull Secret
+  copy:
+    src: openshift-pull-secret
+    dest: /etc/crio/openshift-pull-secret
+
+- name: Remove MicroShift
+  dnf:
+    name: microshift
+    state: absent
+
+- name: Remove MicroShift
+  dnf:
+    name: openvswitch
+    state: absent
+
+- name: Lösche ovn-Konfigurationsverzeichnis
+  file:
+    path: /etc/openvswitch/
+    state: absent
+
+- name: Cleanup microshift from hostdata certs etc
+  file:
+    path: "/var/lib/microshift/"
+    state: absent
+  become: yes
+
+- name: Install MicroShift
+  dnf:
+    name: microshift
+    state: present

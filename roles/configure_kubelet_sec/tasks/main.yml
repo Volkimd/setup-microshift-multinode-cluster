@@ -1,0 +1,110 @@
+---
+
+- name: Copy the bootstrap kube configuration file to local
+  copy:
+    src: "/root/kubelet"
+    dest: "/root/"
+  become: yes
+
+- name: Download and configure kubelet
+  include_tasks: download_kubelet.yml
+
+- name: Ensure /var/lib/microshift/resources/kubeadmin directory exists
+  file:
+    path: /var/lib/microshift/resources/kubeadmin
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
+
+- name: Create hard link for kubeconfig
+  command: ln -f "{{ kubelet_home }}/kubeconfig-{{ groups['primary'][0] }}" /var/lib/microshift/resources/kubeadmin/kubeconfig
+  become: yes
+
+- name: Remove old kubelet configuration file
+  file:
+    path: "{{ kubelet_home }}/kubeconfig"
+    state: absent
+  become: yes
+
+- name: Enable and start crio service
+  systemd:
+    name: crio
+    state: started
+    enabled: yes
+  become: yes
+
+- name: Create kubelet systemd unit file
+  template:
+    src: kubelet.service.j2
+    dest: /etc/systemd/system/kubelet.service
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+
+- name: Enable and start kubelet service
+  systemd:
+    name: kubelet
+    enabled: yes
+    state: started
+
+
+
+
+
+# function configure_kubelet() {
+#     # Download the kubelet executable
+#     local kube_arch="amd64"
+#     local kube_hash="cb2845fff0ce41c400489393da73925d28fbee54cfeb7834cd4d11e622cbd3a7"
+
+#     case $(uname -m) in
+#         x86_64)
+#             ;;
+#         aarch64)
+#             kube_arch="arm64"
+#             kube_hash="dbb09d297d924575654db38ed2fc627e35913c2d4000c34613ac6de4995457d0"
+#             ;;
+#         *)
+#             echo "Unsupported kubelet architecture $(uname -m)"
+#             exit 1
+#     esac
+
+#     curl -sLO "https://dl.k8s.io/release/v1.27.1/bin/linux/${kube_arch}/kubelet" --output-dir "${KUBELET_HOME}"
+#     cat <<EOF > "${KUBELET_HOME}/kubelet.sha256"
+# ${kube_hash} ${KUBELET_HOME}/kubelet
+# EOF
+#     sha256sum --check "${KUBELET_HOME}/kubelet.sha256"
+#     chmod +x "${KUBELET_HOME}/kubelet"
+
+#     # OVN requires kubeconfig at this path
+#     # It must be a hard link or copy to be accessed from the container
+#     sudo mkdir -p /var/lib/microshift/resources/kubeadmin
+#     sudo ln "${KUBELET_HOME}/kubeconfig-${PRI_NODE_HOST}" /var/lib/microshift/resources/kubeadmin/kubeconfig
+#     # Remove the old kubelet configuration file so that it is recreated
+#     sudo rm -f "${KUBELET_HOME}/kubeconfig"
+
+#     # Start crio & kubelet
+#     sudo systemctl enable --now crio
+#     sudo systemd-run --unit=kubelet --description="Kubelet" \
+#         --property=Environment="PATH=/sbin:/bin:/usr/sbin:/usr/bin:/opt/bin" \
+#         "${KUBELET_HOME}"/kubelet \
+#         --container-runtime-endpoint=/var/run/crio/crio.sock \
+#         --resolv-conf=/etc/resolv.conf \
+#         --rotate-certificates=true \
+#         --kubeconfig="${KUBELET_HOME}/kubeconfig" \
+#         --lock-file=/var/run/lock/kubelet.lock \
+#         --exit-on-lock-contention \
+#         --fail-swap-on=false \
+#         --max-pods=250 \
+#         --cgroup-driver=systemd \
+#         --tls-cert-file="${KUBELET_HOME}/kubelet-${SEC_NODE_HOST}.crt" \
+#         --tls-private-key-file="${KUBELET_HOME}/kubelet-${SEC_NODE_HOST}.key" \
+#         --bootstrap-kubeconfig="${KUBELET_HOME}/kubeconfig-${PRI_NODE_HOST}" \
+#         --cluster-dns=10.43.0.10 \
+#         --cluster-domain=cluster.local
+# }

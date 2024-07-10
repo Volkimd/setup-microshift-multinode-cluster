@@ -1,0 +1,104 @@
+- name: Install cfssl utilities
+  include_tasks: install_cfssl.yml
+
+- name: Ensure kubelet directory exists
+  file:
+    path: "{{ kubelet_home }}"
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Cleanup kubelet_home from hostdata certs etc
+  file:
+    path: "{{ kubelet_home }}/{{ item }}"
+    state: absent
+  with_fileglob:
+    - "{{ kubelet_home }}/kubelet-{{ item }}*"
+  loop: "{{ groups['secondary'] }}"
+  loop_control:
+    loop_var: item
+  become: yes
+  delegate_to: "{{ groups['primary'][0] }}"  # Task auf dem Primary Host ausführen
+
+- name: Generate CSR file from template
+  template:
+    src: csr_file.json.j2
+    dest: "{{ kubelet_home }}/csr_file_{{ item }}.json"
+  vars:
+    sec_node_host: "{{ item }}"
+    sec_node_addr: "{{ hostvars[item].ansible_host }}"
+  with_items: "{{ groups['secondary'] }}"
+  loop_control:
+    loop_var: item
+
+
+- name: Generate kubelet CSR and key
+  shell: |
+    cfssl genkey {{ kubelet_home }}/csr_file_{{ item }}.json | cfssljson -bare {{ kubelet_home }}/kubelet-{{ item }}
+  with_items: "{{ groups['secondary'] }}"
+  loop_control:
+    loop_var: item
+  become: yes
+
+- name: Check if CSR file exists
+  stat:
+    path: "{{ kubelet_home }}/kubelet-{{ item }}.csr"
+  with_items: "{{ groups['secondary'] }}"
+  loop_control:
+    loop_var: item
+
+- name: Prepare CertificateSigningRequest YAML
+  copy:
+    content: |
+      apiVersion: certificates.k8s.io/v1
+      kind: CertificateSigningRequest
+      metadata:
+        name: csr-kubelet-{{ item }}
+      spec:
+        request: {{ lookup('file', kubelet_home + '/kubelet-' + item + '.csr') | b64encode }}
+        signerName: kubernetes.io/kubelet-serving
+        usages:
+        - digital signature
+        - key encipherment
+        - server auth
+    dest: "{{ kubelet_home }}/csr-kubelet-{{ item }}.yaml"
+  with_items: "{{ groups['secondary'] }}"
+  loop_control:
+    loop_var: item
+
+- name: Apply CertificateSigningRequest
+  environment:
+  - KUBECONFIG: /var/lib/microshift/resources/kubeadmin/kubeconfig
+  shell: |
+    oc delete csr csr-kubelet-{{ item }}
+    oc apply -f {{ kubelet_home }}/csr-kubelet-{{ item }}.yaml
+  with_items: "{{ groups['secondary'] }}"
+  loop_control:
+    loop_var: item
+  become: yes
+
+- name: Approve and extract the certificate
+  environment:
+  - KUBECONFIG: /var/lib/microshift/resources/kubeadmin/kubeconfig
+  shell: |
+    kubectl certificate approve csr-kubelet-{{ item }}
+    kubectl get csr csr-kubelet-{{ item }} -o jsonpath='{.status.certificate}' | base64 --decode > {{ kubelet_home }}/kubelet-{{ item }}.crt
+  with_items: "{{ groups['secondary'] }}"
+  loop_control:
+    loop_var: item
+  become: yes
+
+
+- name: Copy the bootstrap kube configuration file to local
+  copy:
+    src: "/var/lib/microshift/resources/kubeadmin/{{ groups['primary'][0] }}/kubeconfig"
+    dest: "{{ kubelet_home }}/kubeconfig-{{ groups['primary'][0] }}"
+  become: yes
+
+- name: Set ownership of local kubeconfig file
+  file:
+    path: "{{ kubelet_home }}/kubeconfig-{{ groups['primary'][0] }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    state: file
+  become: yes

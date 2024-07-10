@@ -1,0 +1,6 @@
+[microshift-4.16]
+name=MicroShift 4.16.0 
+baseurl=https://mirror.openshift.com/pub/openshift-v4/aarch64/microshift/ocp/latest-4.16/el9/os/
+enabled=1
+gpgcheck=0
+skip_if_unavailable=0

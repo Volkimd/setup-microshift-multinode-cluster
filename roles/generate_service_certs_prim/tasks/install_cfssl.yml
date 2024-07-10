@@ -1,0 +1,23 @@
+---
+- name: Create temporary directories
+  tempfile:
+    state: directory
+  register: temp_dirs
+
+- name: Set file paths
+  set_fact:
+    cfssl: "/usr/local/bin/cfssl"
+    cfssl_json: "/usr/local/bin/cfssl_json"
+    csr_file: "{{ temp_dirs.path }}/csrfile"
+
+- name: Download cfssl
+  get_url:
+    url: "https://github.com/cloudflare/cfssl/releases/download/v1.6.4/cfssl_1.6.4_linux_{{ cfssl_arch }}"
+    dest: "{{ cfssl }}"
+    mode: '0755'
+
+- name: Download cfssljson
+  get_url:
+    url: "https://github.com/cloudflare/cfssl/releases/download/v1.6.4/cfssljson_1.6.4_linux_{{ cfssl_arch }}"
+    dest: "{{ cfssl_json }}"
+    mode: '0755'

@@ -1,0 +1,60 @@
+# roles/microshift_config/tasks/main.yml
+
+- name: Disable SELinux
+  command: setenforce 0
+  ignore_errors: true
+  become: yes
+
+- name: Stop firewalld service
+  systemd:
+    name: firewalld
+    state: stopped
+    enabled: no
+  become: yes
+
+- name: Set hostname
+  hostname:
+    name: "{{ inventory_hostname }}"
+  become: yes
+
+- name: Ensure primary host is in /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    line: "{{ hostvars[item].ansible_host }} {{ item }}"
+    state: present
+  with_items: "{{ groups['primary'] }}"
+  when: inventory_hostname in groups['secondary']
+  become: yes
+
+- name: Ensure secondary hosts are in /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    line: "{{ hostvars[item].ansible_host }} {{ item }}"
+    state: present
+  with_items: "{{ groups['secondary'] }}"
+  when: inventory_hostname in groups['primary']
+  become: yes
+
+
+
+# function configure_system() {
+#     # Disable selinux
+#     # TODO: remove once selinux is working properly again
+#     sudo setenforce 0 || true
+
+#     # TODO: Edit firewall rules instead of stopping firewall
+#     sudo systemctl stop firewalld
+#     sudo systemctl disable firewalld
+
+#     # Configure the MicroShift host name
+#     sudo hostnamectl hostname "${PRI_NODE_HOST}"
+
+#     # Update /etc/hosts to resolve primary and secondary host names if not already resolved
+#     if [ "$(getent ahostsv4 "${PRI_NODE_HOST}" | head -1 | awk '{print $1}')" != "${PRI_NODE_ADDR}" ] ; then
+#         echo "${PRI_NODE_ADDR} ${PRI_NODE_HOST}" | sudo tee -a /etc/hosts &>/dev/null
+#     fi
+#     if [ "$(getent ahostsv4 "${SEC_NODE_HOST}" | head -1 | awk '{print $1}')" != "${SEC_NODE_ADDR}" ] ; then
+#         echo "${SEC_NODE_ADDR} ${SEC_NODE_HOST}" | sudo tee -a /etc/hosts &>/dev/null
+#     fi
+# }
+

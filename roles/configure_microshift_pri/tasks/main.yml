@@ -1,0 +1,136 @@
+---
+# roles/microshift/tasks/main.yml
+
+- name: Clean the current MicroShift configuration and stop the service
+  command: echo 1 | sudo microshift-cleanup-data --all --keep-images
+  become: yes
+
+
+
+- name: Cleanup kubelet_home from hostdata certs etc
+  file:
+    path: "{{ kubelet_home }}"
+    state: absent
+  become: yes
+
+- name: Sleep for 5 seconds
+  pause:
+    seconds: 5
+
+- name: Start microshift-ovs-init service
+  systemd:
+    name: microshift-ovs-init.service
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: yes
+
+- name: Check if br-ex has the dummy IP assigned
+  command: ip addr show br-ex
+  register: br_ex_ip
+  failed_when: br_ex_ip.rc != 0 and '10.44.0.0/32' not in br_ex_ip.stdout
+
+- name: Add dummy IP to br-ex if not present
+  command: sudo ip addr add 10.44.0.0/32 dev br-ex
+  when: '"10.44.0.0/32" not in br_ex_ip.stdout'
+  become: yes
+
+- name: Configure MicroShift API server access
+  copy:
+    dest: /etc/microshift/config.yaml
+    content: |
+      apiServer:
+        subjectAltNames:
+          - "10.43.0.1"
+  become: yes
+
+
+- name: Create MicroShift systemd service file
+  template:
+    src: microshift.service.j2
+    dest: /etc/systemd/system/microshift.service
+    mode: '0644'
+  become: yes
+
+- name: Reload systemd to apply new service
+  systemd:
+    daemon_reload: yes
+  become: yes
+
+- name: Enable and start MicroShift service
+  systemd:
+    name: microshift
+    state: restarted
+    enabled: yes
+  become: yes
+
+
+
+- name: Wait for MicroShift pod to be ready
+  environment:
+    - KUBECONFIG: /var/lib/microshift/resources/kubeadmin/kubeconfig
+  block:
+    - name: Waiting for MicroShift pod to be ready
+      command: 'oc wait --timeout=0s --for=condition=ready pod -n "openshift-service-ca" -l app="service-ca"'
+      register: pod_status
+      retries: 300
+      delay: 1
+      until: pod_status.rc == 0
+      become: yes
+  rescue:
+    - name: Fail if pod is not ready after timeout
+      fail:
+        msg: "Error: timed out waiting for MicroShift {{ pod_name }}@{{ pod_namespace }} pod to be ready"
+
+
+ 
+
+
+# 
+# function configure_microshift() {
+#     # Clean the current MicroShift configuration and stop the service
+#     echo 1 | sudo microshift-cleanup-data --all --keep-images
+# 
+#     # Run OVN initialization script
+#     sleep 5
+#     sudo systemctl start --wait microshift-ovs-init.service
+# 
+#     # OVN-K expects br-ex to have IP address assigned, add dummy IP to br-ex.
+#     if ! ip addr show br-ex 2>/dev/null | grep -q '10.44.0.0/32'; then
+#         sudo ip addr add 10.44.0.0/32 dev br-ex
+#     fi
+# 
+#     # Configure MicroShift to allow API server access by an IP address
+#     cat <<EOF | sudo tee /etc/microshift/config.yaml &>/dev/null
+# apiServer:
+#   subjectAltNames:
+#     - "10.43.0.1"
+# EOF
+# }
+# 
+# sudo nohup microshift run --multinode &> "$(mktemp /tmp/microshift-log.XXXXXXXXXX)" &
+# ##
+# 
+# function wait_for_pod_ready() {
+#     local pod_namespace=$1
+#     local pod_name=$2
+#     local service_ready=false
+# 
+#     echo "Waiting for MicroShift ${pod_name}@${pod_namespace} pod to be ready"
+#     for _ in $(seq 300) ; do
+#         if ${OC_CMD} wait --timeout=0s --for=condition=ready pod -n "${pod_namespace}" -l app="${pod_name}" &>/dev/null ; then
+#             service_ready=true
+#             break
+#         fi
+#         echo -n "."
+#         sleep 1
+#     done
+#     echo
+# 
+#     if ! ${service_ready} ; then
+#         echo "Error: timed out waiting for MicroShift ${pod_name}@${pod_namespace} pod to be ready"
+#         exit 1
+#     fi
+# }
+# 
+# 

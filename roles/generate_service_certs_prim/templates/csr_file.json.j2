@@ -1,0 +1,16 @@
+{
+  "CN": "system:node:{{ sec_node_addr }}",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "hosts": [
+    "{{ sec_node_host }}",
+    "{{ sec_node_addr }}"
+  ],
+  "names": [
+    {
+      "O": "system:nodes"
+    }
+  ]
+}
