@@ -1,0 +1,8 @@
+[primary]
+master_node ansible_host=192.168.0.10  # Example master node IP
+
+[secondary]
+worker_node1 ansible_host=192.168.0.20  # Example worker node IPs
+worker_node2 ansible_host=192.168.0.30
+worker_node3 ansible_host=192.168.0.40
+worker_node4 ansible_host=192.168.0.50

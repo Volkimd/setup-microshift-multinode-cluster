@@ -110,39 +110,3 @@
   become: yes
 
 
-
-
-
-# ## Sec
-# function configure_microshift() {
-#     # Clean the current MicroShift configuration and stop the service
-#     echo 1 | sudo microshift-cleanup-data --all --keep-images
-
-#     # Run OVN initialization script
-#     sleep 5
-#     sudo systemctl start --wait microshift-ovs-init.service
-
-#     # OVN-K expects br-ex to have IP address assigned, add dummy IP to br-ex.
-    # if ! ip addr show br-ex 2>/dev/null | grep -q '10.44.0.0/32'; then
-    #     sudo ip addr add 10.44.0.0/32 dev br-ex
-    # fi
-
-#     # Stop and unload the kubelet service
-#     if [ "$(systemctl is-active kubelet.service)" = "active" ] ; then
-#         sudo systemctl stop --now kubelet
-#     fi
-#     sudo systemctl reset-failed kubelet || true
-#     # Make sure the kubelet process is terminated
-#     sudo pkill -9 --exact kubelet || true
-#     until ! pidof kubelet &>/dev/null ; do
-#         sleep 1
-#     done
-#     # Clean up the old kubelet data
-#     for dir in $(mount | awk '{print $3}' | grep ^/var/lib/kubelet/) ; do
-#         sudo umount "${dir}"
-#     done
-#     sudo rm -rf /var/lib/kubelet
-#     # Remove the kubelet service unit
-#     sudo find /run/systemd -name kubelet.service -exec rm -f {} \;
-#     sudo systemctl daemon-reload
-# }

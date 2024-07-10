@@ -1,0 +1,23 @@
+# Ansible-specific exclusions
+*.retry
+*.log
+*.kb
+
+# Inventory exclusions
+inventory
+
+# Variable exclusions
+group_vars/
+host_vars/
+*.yml.vault
+*.yaml.vault
+
+# Exclude sensitive or temporary files
+*.pyc
+*.swp
+*~
+\#*\#
+.#*
+
+# Exclude local configuration files
+ansible.cfg

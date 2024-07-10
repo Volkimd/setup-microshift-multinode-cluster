@@ -1,9 +1,0 @@
-[primary]
-raspi1 ansible_host=192.168.2.52
-
-[secondary]
-libre1 ansible_host=192.168.2.61
-libre2 ansible_host=192.168.2.189
-raspi2 ansible_host=192.168.2.63
-raspi3 ansible_host=192.168.2.178
-
